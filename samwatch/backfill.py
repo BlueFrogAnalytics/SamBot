@@ -1,4 +1,4 @@
-"""Backfill planning helpers for SAMWatch."""
+"""Backfill planning utilities for SAMWatch cold sweeps."""
 
 from __future__ import annotations
 

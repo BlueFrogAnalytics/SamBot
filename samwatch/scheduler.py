@@ -1,4 +1,4 @@
-"""Simple cooperative scheduler for SAMWatch."""
+"""Simple in-process scheduler for recurring SAMWatch jobs."""
 
 from __future__ import annotations
 
