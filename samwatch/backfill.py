@@ -1,4 +1,6 @@
-"""Backfill planning utilities for SAMWatch."""
+"""Backfill planning helpers for SAMWatch."""
+
+from __future__ import annotations
 
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -9,6 +11,8 @@ from .config import Config
 
 @dataclass(slots=True)
 class BackfillWindow:
+    """Represents a contiguous date window for a cold sweep."""
+
     start: date
     end: date
 

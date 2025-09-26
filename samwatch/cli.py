@@ -1,4 +1,4 @@
-"""Command line interface for SAMWatch."""
+"""Command-line interface for operating the SAMWatch service."""
 
 from __future__ import annotations
 
