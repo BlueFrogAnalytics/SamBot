@@ -13,6 +13,7 @@ rate limiting primitives, an HTTP client, and database schema definitions.
   attachments
 - SQLite schema with tables for opportunities, contacts, attachments, and alerting rules
 - Typer-based command line interface for running ingestion pipelines and queries
+- Run tracking persisted in the SQLite `runs` table for observability
 
 ## Getting Started
 

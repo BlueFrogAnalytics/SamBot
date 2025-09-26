@@ -32,7 +32,7 @@ class IngestionOrchestrator:
             "postedTo": today.isoformat(),
             "offset": 0,
         }
-        self._ingest_range(params)
+        self._ingest_range("hot", params)
 
     def run_warm(self, days: int = 7) -> None:
         """Rescan the last ``days`` for amendments or cancellations."""
@@ -44,7 +44,7 @@ class IngestionOrchestrator:
             "postedTo": end.isoformat(),
             "offset": 0,
         }
-        self._ingest_range(params)
+        self._ingest_range("warm", params)
 
     def run_cold(self, start: datetime, end: datetime) -> None:
         """Perform a cold sweep over a longer window."""
@@ -56,12 +56,23 @@ class IngestionOrchestrator:
             "postedTo": end.date().isoformat(),
             "offset": 0,
         }
-        self._ingest_range(params)
+        self._ingest_range("cold", params)
 
-    def _ingest_range(self, params: Mapping[str, object]) -> None:
-        logger.info("Starting ingestion with params %s", params)
-        for record in self.client.iter_search(params):
-            self.upsert_record(record)
+    def _ingest_range(self, kind: str, params: Mapping[str, object]) -> None:
+        logger.info("Starting %s ingestion with params %s", kind, params)
+        processed = 0
+        run_id = None
+        with self.database.record_run(kind) as current_run_id:
+            run_id = current_run_id
+            for record in self.client.iter_search(params):
+                self.upsert_record(record)
+                processed += 1
+        logger.info(
+            "Completed %s ingestion run %s; processed %d records",
+            kind,
+            run_id,
+            processed,
+        )
 
     def upsert_record(self, record: Mapping[str, object]) -> None:
         """Persist a single API record into the database."""
