@@ -60,3 +60,23 @@ WHERE status = 'failed'
 ORDER BY datetime(started_at) DESC
 LIMIT 20;
 ```
+
+## Run Metrics Summary
+
+```sql
+SELECT r.id AS run_id, r.kind, m.metric, m.value, r.started_at
+FROM run_metrics m
+JOIN runs r ON r.id = m.run_id
+ORDER BY datetime(r.started_at) DESC, m.metric;
+```
+
+## Recent Rule Matches
+
+```sql
+SELECT r.name AS rule_name, o.notice_id, o.title, rm.matched_at
+FROM rule_matches rm
+JOIN rules r ON r.id = rm.rule_id
+JOIN opportunities o ON o.id = rm.opportunity_id
+ORDER BY datetime(rm.matched_at) DESC
+LIMIT 50;
+```

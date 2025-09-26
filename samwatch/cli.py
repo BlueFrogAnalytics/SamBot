@@ -127,7 +127,7 @@ def alerts() -> None:
 
     config, database, client = _build_context(with_client=False)
     try:
-        engine = AlertEngine(database)
+        engine = AlertEngine(config, database)
         engine.evaluate_rules()
     finally:
         database.close()
