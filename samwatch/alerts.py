@@ -1,10 +1,10 @@
-"""Alert evaluation engine for SAMWatch."""
+"""Alert evaluation routines for SAMWatch."""
 
 from __future__ import annotations
 
 import json
 import logging
-from typing import Iterable, Mapping
+from collections.abc import Iterable, Mapping
 
 from .db import Database
 
@@ -45,7 +45,7 @@ class AlertEngine:
         cur = self.database.execute(statement)
         columns = [col[0] for col in cur.description]
         rows = cur.fetchall()
-        return [dict(zip(columns, row)) for row in rows]
+        return [dict(zip(columns, row, strict=False)) for row in rows]
 
     def _execute_json_rule(self, definition: str) -> Iterable[Mapping[str, object]]:
         payload = json.loads(definition)
@@ -61,7 +61,7 @@ class AlertEngine:
             parameters.append(f"%{value}%")
         cur = self.database.execute(sql, parameters)
         rows = cur.fetchall()
-        return [dict(zip(row.keys(), row)) for row in rows]
+        return [dict(zip(row.keys(), row, strict=False)) for row in rows]
 
     def _persist_matches(self, rule_id: int, matches: Iterable[Mapping[str, object]]) -> None:
         with self.database.cursor() as cur:
@@ -73,7 +73,8 @@ class AlertEngine:
                     """
                     INSERT INTO rule_matches (rule_id, opportunity_id)
                     VALUES (?, ?)
-                    ON CONFLICT(rule_id, opportunity_id) DO UPDATE SET matched_at = CURRENT_TIMESTAMP
+                    ON CONFLICT(rule_id, opportunity_id) DO UPDATE
+                        SET matched_at = CURRENT_TIMESTAMP
                     """,
                     (rule_id, opportunity_id),
                 )

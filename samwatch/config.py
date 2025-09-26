@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping, MutableMapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Mapping, MutableMapping
 
 
 class ConfigError(RuntimeError):
@@ -32,7 +32,7 @@ class Config:
     @classmethod
     def from_env(
         cls, env: Mapping[str, str] | MutableMapping[str, str] | None = None, **overrides: object
-    ) -> "Config":
+    ) -> Config:
         """Create a :class:`Config` instance from environment variables."""
 
         env = env or os.environ
@@ -42,22 +42,36 @@ class Config:
 
         data_dir = Path(overrides.pop("data_dir", env.get("SAMWATCH_DATA_DIR", "data")))
         sqlite_path = Path(
-            overrides.pop("sqlite_path", env.get("SAMWATCH_SQLITE_PATH", data_dir / "sqlite" / "samwatch.db"))
+            overrides.pop(
+                "sqlite_path",
+                env.get(
+                    "SAMWATCH_SQLITE_PATH",
+                    data_dir / "sqlite" / "samwatch.db",
+                ),
+            )
         )
-        files_dir = Path(overrides.pop("files_dir", env.get("SAMWATCH_FILES_DIR", data_dir / "files")))
+        files_dir = Path(
+            overrides.pop(
+                "files_dir",
+                env.get("SAMWATCH_FILES_DIR", data_dir / "files"),
+            )
+        )
 
         config = cls(
             api_key=api_key,
             data_dir=data_dir,
             sqlite_path=sqlite_path,
             files_dir=files_dir,
-            base_url=str(overrides.pop("base_url", env.get("SAMWATCH_BASE_URL", cls.base_url))),
+            base_url=str(
+                overrides.pop("base_url", env.get("SAMWATCH_BASE_URL", cls.base_url))
+            ),
             search_limit=int(
                 overrides.pop("search_limit", env.get("SAMWATCH_SEARCH_LIMIT", cls.search_limit))
             ),
             hourly_request_cap=int(
                 overrides.pop(
-                    "hourly_request_cap", env.get("SAMWATCH_HOURLY_CAP", cls.hourly_request_cap)
+                    "hourly_request_cap",
+                    env.get("SAMWATCH_HOURLY_CAP", cls.hourly_request_cap),
                 )
             ),
             daily_request_cap=(
@@ -68,21 +82,26 @@ class Config:
                 else cls.daily_request_cap
             ),
             http_timeout=float(
-                overrides.pop("http_timeout", env.get("SAMWATCH_HTTP_TIMEOUT", cls.http_timeout))
+                overrides.pop(
+                    "http_timeout", env.get("SAMWATCH_HTTP_TIMEOUT", cls.http_timeout)
+                )
             ),
             hot_frequency_minutes=int(
                 overrides.pop(
-                    "hot_frequency_minutes", env.get("SAMWATCH_HOT_FREQUENCY", cls.hot_frequency_minutes)
+                    "hot_frequency_minutes",
+                    env.get("SAMWATCH_HOT_FREQUENCY", cls.hot_frequency_minutes),
                 )
             ),
             warm_frequency_minutes=int(
                 overrides.pop(
-                    "warm_frequency_minutes", env.get("SAMWATCH_WARM_FREQUENCY", cls.warm_frequency_minutes)
+                    "warm_frequency_minutes",
+                    env.get("SAMWATCH_WARM_FREQUENCY", cls.warm_frequency_minutes),
                 )
             ),
             cold_frequency_hours=int(
                 overrides.pop(
-                    "cold_frequency_hours", env.get("SAMWATCH_COLD_FREQUENCY", cls.cold_frequency_hours)
+                    "cold_frequency_hours",
+                    env.get("SAMWATCH_COLD_FREQUENCY", cls.cold_frequency_hours),
                 )
             ),
         )

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import threading
 import time
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Mapping
 
 
 @dataclass(slots=True)
@@ -50,7 +50,9 @@ class RateLimiter:
         self._time_fn = time_fn
         self.hourly = RateLimitBudget(limit=hourly_limit, remaining=hourly_limit)
         self.daily = (
-            RateLimitBudget(limit=daily_limit, remaining=daily_limit) if daily_limit is not None else None
+            RateLimitBudget(limit=daily_limit, remaining=daily_limit)
+            if daily_limit is not None
+            else None
         )
         self._last_refresh = self._time_fn()
 
