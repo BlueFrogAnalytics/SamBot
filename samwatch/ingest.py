@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable, Mapping
 from datetime import datetime, timedelta
-from typing import Iterable, Mapping
+from pathlib import Path
+from urllib.parse import urlparse
 
-from .client import SAMWatchClient
+from .client import SAMClientError, SAMWatchClient
 from .config import Config
 from .db import Database
 
@@ -77,7 +79,8 @@ class IngestionOrchestrator:
                 """
                 INSERT INTO opportunities (
                     notice_id, title, agency, sub_tier, office, notice_type, status,
-                    posted_at, updated_at, response_deadline, naics_codes, set_aside, digest, last_changed_at
+                    posted_at, updated_at, response_deadline, naics_codes,
+                    set_aside, digest, last_changed_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(notice_id) DO UPDATE SET
                     title=excluded.title,
@@ -124,9 +127,17 @@ class IngestionOrchestrator:
             opportunity_id = row[0]
 
             self._persist_contacts(cur, opportunity_id, record.get("contacts", []))
-            self._persist_attachments(cur, opportunity_id, record.get("resourceLinks", []))
+            self._persist_description(cur, opportunity_id, record)
+            self._persist_attachments(
+                cur,
+                opportunity_id,
+                notice_id,
+                record.get("resourceLinks", []),
+            )
 
-    def _persist_contacts(self, cur, opportunity_id: int, contacts: Iterable[Mapping[str, object]]) -> None:
+    def _persist_contacts(
+        self, cur, opportunity_id: int, contacts: Iterable[Mapping[str, object]]
+    ) -> None:
         cur.execute("DELETE FROM contacts WHERE opportunity_id = ?", (opportunity_id,))
         for contact in contacts or []:
             cur.execute(
@@ -143,14 +154,60 @@ class IngestionOrchestrator:
                 ),
             )
 
+    def _persist_description(
+        self, cur, opportunity_id: int, record: Mapping[str, object]
+    ) -> None:
+        """Store the detailed description text when available."""
+
+        description = self._extract_description(record)
+        if description is None:
+            return
+
+        cur.execute("DELETE FROM descriptions WHERE opportunity_id = ?", (opportunity_id,))
+        cur.execute(
+            """
+            INSERT INTO descriptions (opportunity_id, body)
+            VALUES (?, ?)
+            """,
+            (opportunity_id, description),
+        )
+
     def _persist_attachments(
-        self, cur, opportunity_id: int, attachments: Iterable[Mapping[str, object]]
+        self,
+        cur,
+        opportunity_id: int,
+        notice_id: str,
+        attachments: Iterable[Mapping[str, object]],
     ) -> None:
         cur.execute("DELETE FROM attachments WHERE opportunity_id = ?", (opportunity_id,))
+        base_dir = self.config.files_dir
         for attachment in attachments or []:
             url = attachment.get("url") or attachment.get("href")
             if not url:
                 continue
+
+            filename = attachment.get("fileName")
+            if not filename:
+                parsed = urlparse(url)
+                filename = Path(parsed.path).name or "attachment"
+
+            destination = base_dir / notice_id / filename
+            destination.parent.mkdir(parents=True, exist_ok=True)
+
+            sha256 = attachment.get("sha256")
+            size = attachment.get("size")
+            try:
+                download = self.client.download_attachment(url, destination)
+            except SAMClientError as exc:
+                logger.warning("Failed to download attachment %s: %s", url, exc)
+            except Exception:  # pragma: no cover - defensive guard
+                logger.exception("Unexpected error downloading attachment %s", url)
+            else:
+                sha256 = download.sha256
+                size = download.bytes_written
+                destination = download.path
+
+            local_path = self._relative_files_path(destination)
             cur.execute(
                 """
                 INSERT INTO attachments (opportunity_id, url, local_path, sha256, bytes)
@@ -159,8 +216,34 @@ class IngestionOrchestrator:
                 (
                     opportunity_id,
                     url,
-                    attachment.get("fileName", ""),
-                    attachment.get("sha256"),
-                    attachment.get("size"),
+                    local_path,
+                    sha256,
+                    size,
                 ),
             )
+
+    def _extract_description(self, record: Mapping[str, object]) -> str | None:
+        body = record.get("description") or record.get("noticeDescription")
+        if isinstance(body, dict):
+            body = body.get("text")
+        if body:
+            return str(body)
+
+        for key in ("descriptionUrl", "descriptionLink", "noticeDescriptionUrl"):
+            url = record.get(key)
+            if not url:
+                continue
+            try:
+                return self.client.fetch_description(str(url))
+            except SAMClientError as exc:
+                logger.warning("Failed to fetch description %s: %s", url, exc)
+            except Exception:  # pragma: no cover - defensive guard
+                logger.exception("Unexpected error fetching description %s", url)
+                break
+        return None
+
+    def _relative_files_path(self, path: Path) -> str:
+        try:
+            return str(path.relative_to(self.config.files_dir))
+        except ValueError:
+            return str(path)
