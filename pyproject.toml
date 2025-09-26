@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=65", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "samwatch"
+version = "0.1.0"
+description = "Monitoring and alerting tools for SAM.gov opportunities"
+readme = "README.md"
+authors = [{name = "SamWatch Team"}]
+requires-python = ">=3.10"
+keywords = ["sam.gov", "procurement", "monitoring"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "httpx>=0.27",
+    "python-dateutil>=2.8",
+    "tenacity>=8.2",
+    "typer>=0.9",
+    "rich>=13.7",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.4",
+]
+
+[tool.ruff]
+line-length = 100
+select = ["E", "F", "I", "B", "UP", "N"]
+
+[tool.typer]
+script-name = "samwatch"
