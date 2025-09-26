@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
@@ -111,6 +111,15 @@ SCHEMA_STATEMENTS: Sequence[str] = (
         matched_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         payload TEXT,
         UNIQUE(rule_id, opportunity_id)
+    );
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS run_metrics (
+        id INTEGER PRIMARY KEY,
+        run_id INTEGER NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+        metric TEXT NOT NULL,
+        value INTEGER NOT NULL,
+        recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
     """,
     """
@@ -232,4 +241,23 @@ class Database:
                 WHERE id = ?
                 """,
                 (status, self._timestamp(), error_message, run_id),
+            )
+
+    def record_run_metrics(self, run_id: int, metrics: Mapping[str, int]) -> None:
+        """Persist aggregated metrics for a completed run."""
+
+        rows = [
+            (run_id, key, int(value))
+            for key, value in metrics.items()
+            if value is not None
+        ]
+        if not rows:
+            return
+        with self.cursor() as cur:
+            cur.executemany(
+                """
+                INSERT INTO run_metrics (run_id, metric, value)
+                VALUES (?, ?, ?)
+                """,
+                rows,
             )

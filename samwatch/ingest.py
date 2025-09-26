@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlparse
@@ -11,6 +12,15 @@ from urllib.parse import urlparse
 from .client import SAMClientError, SAMWatchClient
 from .config import Config
 from .db import Database
+
+@dataclass(slots=True)
+class UpsertOutcome:
+    """Summary information about processing a single record."""
+
+    created: bool = False
+    updated: bool = False
+    attachments_downloaded: int = 0
+    attachment_failures: int = 0
 
 logger = logging.getLogger(__name__)
 
@@ -60,23 +70,40 @@ class IngestionOrchestrator:
 
     def _ingest_range(self, kind: str, params: Mapping[str, object]) -> None:
         logger.info("Starting %s ingestion with params %s", kind, params)
-        processed = 0
+        metrics = {
+            "records_processed": 0,
+            "records_created": 0,
+            "records_updated": 0,
+            "attachments_downloaded": 0,
+            "attachment_failures": 0,
+        }
         run_id = None
         with self.database.record_run(kind) as current_run_id:
             run_id = current_run_id
             for record in self.client.iter_search(params):
-                self.upsert_record(record)
-                processed += 1
+                outcome = self.upsert_record(record)
+                metrics["records_processed"] += 1
+                if outcome.created:
+                    metrics["records_created"] += 1
+                if outcome.updated:
+                    metrics["records_updated"] += 1
+                metrics["attachments_downloaded"] += outcome.attachments_downloaded
+                metrics["attachment_failures"] += outcome.attachment_failures
+        if run_id is not None:
+            self.database.record_run_metrics(run_id, metrics)
         logger.info(
-            "Completed %s ingestion run %s; processed %d records",
+            "Completed %s ingestion run %s; processed %d records (created=%d updated=%d)",
             kind,
             run_id,
-            processed,
+            metrics["records_processed"],
+            metrics["records_created"],
+            metrics["records_updated"],
         )
 
-    def upsert_record(self, record: Mapping[str, object]) -> None:
+    def upsert_record(self, record: Mapping[str, object]) -> UpsertOutcome:
         """Persist a single API record into the database."""
 
+        outcome = UpsertOutcome()
         notice_id = str(record.get("noticeId"))
         logger.debug("Processing notice %s", notice_id)
         naics = record.get("naics", []) or []
@@ -86,6 +113,14 @@ class IngestionOrchestrator:
             naics_codes = ",".join(str(code) for code in naics)
 
         with self.database.cursor() as cur:
+            cur.execute(
+                "SELECT id, digest FROM opportunities WHERE notice_id = ?",
+                (notice_id,),
+            )
+            existing = cur.fetchone()
+            existing_id = existing[0] if existing else None
+            existing_digest = existing[1] if existing else None
+
             cur.execute(
                 """
                 INSERT INTO opportunities (
@@ -134,18 +169,31 @@ class IngestionOrchestrator:
             cur.execute("SELECT id FROM opportunities WHERE notice_id = ?", (notice_id,))
             row = cur.fetchone()
             if row is None:
-                return
+                return outcome
             opportunity_id = row[0]
+
+            cur.execute(
+                "SELECT digest FROM opportunities WHERE id = ?",
+                (opportunity_id,),
+            )
+            digest_row = cur.fetchone()
+            current_digest = digest_row[0] if digest_row else None
+            outcome.created = existing_id is None
+            outcome.updated = bool(existing_id is not None and current_digest != existing_digest)
 
             self._persist_awards(cur, opportunity_id, record.get("awards") or record.get("award"))
             self._persist_contacts(cur, opportunity_id, record.get("contacts", []))
             self._persist_description(cur, opportunity_id, record)
-            self._persist_attachments(
+            downloaded, failed = self._persist_attachments(
                 cur,
                 opportunity_id,
                 notice_id,
                 record.get("resourceLinks", []),
             )
+            outcome.attachments_downloaded = downloaded
+            outcome.attachment_failures = failed
+
+        return outcome
 
     def _persist_awards(
         self,
@@ -229,9 +277,11 @@ class IngestionOrchestrator:
         opportunity_id: int,
         notice_id: str,
         attachments: Iterable[Mapping[str, object]],
-    ) -> None:
+    ) -> tuple[int, int]:
         cur.execute("DELETE FROM attachments WHERE opportunity_id = ?", (opportunity_id,))
         base_dir = self.config.files_dir
+        downloaded = 0
+        failed = 0
         for attachment in attachments or []:
             url = attachment.get("url") or attachment.get("href")
             if not url:
@@ -251,12 +301,17 @@ class IngestionOrchestrator:
                 download = self.client.download_attachment(url, destination)
             except SAMClientError as exc:
                 logger.warning("Failed to download attachment %s: %s", url, exc)
+                failed += 1
+                download = None
             except Exception:  # pragma: no cover - defensive guard
                 logger.exception("Unexpected error downloading attachment %s", url)
+                failed += 1
+                download = None
             else:
                 sha256 = download.sha256
                 size = download.bytes_written
                 destination = download.path
+                downloaded += 1
 
             local_path = self._relative_files_path(destination)
             cur.execute(
@@ -272,6 +327,8 @@ class IngestionOrchestrator:
                     size,
                 ),
             )
+
+        return downloaded, failed
 
     def _extract_description(self, record: Mapping[str, object]) -> str | None:
         body = record.get("description") or record.get("noticeDescription")

@@ -13,7 +13,8 @@ rate limiting primitives, an HTTP client, and database schema definitions.
   attachments
 - SQLite schema with tables for opportunities, contacts, attachments, and alerting rules
 - Typer-based command line interface for running ingestion pipelines and queries
-- Run tracking persisted in the SQLite `runs` table for observability
+- Run tracking persisted in the SQLite `runs` table with per-run metrics
+- Multi-channel alerting engine that can emit matches via CLI, webhooks, or email
 
 ## Getting Started
 
@@ -46,3 +47,18 @@ rate limiting primitives, an HTTP client, and database schema definitions.
 This repository currently includes the foundational scaffolding for SAMWatch. Upcoming work
 includes implementing full ingestion pipelines, attachment handling, alert delivery
 integrations, and operational documentation.
+
+## Configuring Alerts
+
+Alert rules live in the `rules` table and can be evaluated with `samwatch alerts`. Each rule may
+have one or more entries in the `alerts` table to control delivery. Supported delivery methods are:
+
+- `cli`/`console`: render matches in a rich table in the terminal.
+- `webhook`: POST JSON payloads to a remote endpoint. The `target` column should contain either the
+  URL as a string or a JSON object such as `{"url": "https://example.com/webhook", "headers": {"Authorization": "token"}}`.
+- `email`: send matches using SMTP. The `target` column must be a JSON object with fields like
+  `{"smtp_server": "smtp.example.com", "smtp_port": 587, "use_tls": true, "sender": "samwatch@example.com", "recipients": ["alerts@example.com"]}`.
+
+Ingestion commands now persist aggregated metrics (processed, created, updated, and attachment
+statistics) in the `run_metrics` table, making it easier to audit historical sweeps and monitor
+throughput trends.

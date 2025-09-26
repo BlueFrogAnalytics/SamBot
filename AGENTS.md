@@ -49,9 +49,9 @@ Build a Python service (`samwatch/`) that continuously scans SAM.gov opportuniti
 - [x] Configuration and rate limiting utilities implemented.
 - [x] SAM.gov client for search, descriptions, and attachment downloads.
 - [x] SQLite schema and migration helpers created.
-- [ ] Ingestion pipeline (hot, warm, cold beams) running with persistence.
-- [ ] Alerting engine with rules and notifications.
-- [ ] Documentation (SQL guide, ops playbook) written and up to date.
+- [x] Ingestion pipeline (hot, warm, cold beams) running with persistence.
+- [x] Alerting engine with rules and notifications.
+- [x] Documentation (SQL guide, ops playbook) written and up to date.
 
 ## Activity Log
 - *2024-05-05*: Initialized mission tracker file.

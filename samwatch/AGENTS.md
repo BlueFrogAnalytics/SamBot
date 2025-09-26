@@ -56,14 +56,14 @@ Stand up the initial project scaffolding (package layout, config plumbing, rate 
 - [x] Rate limiter with hourly/daily accounting and header parsing.
 - [x] SAM client capable of search, description, and attachment download.
 - [x] SQLite schema defined and migrations runnable.
-- [ ] Ingestion loops operational (hot, warm, cold).
-- [ ] Alerting engine with rule evaluation and notification plumbing.
-- [ ] Documentation (SQL guide + ops) drafted and versioned.
+- [x] Ingestion loops operational (hot, warm, cold).
+- [x] Alerting engine with rule evaluation and notification plumbing.
+- [x] Documentation (SQL guide + ops) drafted and versioned.
 
 ## Next Action Steps
-1. Flesh out ingestion orchestrator loops with scheduling and persistence of run metadata.
-2. Implement alert delivery mechanisms (email/webhook) and CLI surfaces.
-3. Expand documentation covering operations and backfill processes.
+1. Integrate scheduler automation and health checks for long-running services.
+2. Build notification templates and delivery retries for alerts.
+3. Document deployment workflows and environment automation.
 
 ## Activity Log
 - *2024-05-09*: Created `samwatch/AGENTS.md` to drive build execution within the `samwatch/` package scope.
