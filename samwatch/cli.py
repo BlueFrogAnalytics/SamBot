@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
-from typing import Optional
 
 import typer
 
@@ -31,8 +30,8 @@ def _build_context(with_client: bool = True) -> tuple[Config, Database, SAMWatch
 def run(
     hot: bool = typer.Option(False, help="Run the hot beam (today's notices)"),
     warm: bool = typer.Option(False, help="Run the warm beam (recent notices)"),
-    cold_start: Optional[str] = typer.Option(None, help="Cold sweep start date YYYY-MM-DD"),
-    cold_end: Optional[str] = typer.Option(None, help="Cold sweep end date YYYY-MM-DD"),
+    cold_start: str | None = typer.Option(None, help="Cold sweep start date YYYY-MM-DD"),
+    cold_end: str | None = typer.Option(None, help="Cold sweep end date YYYY-MM-DD"),
 ) -> None:
     """Execute ingestion sweeps."""
 

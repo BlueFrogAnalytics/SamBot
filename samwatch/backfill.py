@@ -1,10 +1,8 @@
-"""Historical backfill planning for SAMWatch."""
+"""Backfill planning utilities for SAMWatch."""
 
-from __future__ import annotations
-
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from typing import Iterator
 
 from .config import Config
 

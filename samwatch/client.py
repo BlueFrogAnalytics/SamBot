@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import logging
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any
 
 import httpx
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential_jitter
@@ -59,7 +60,12 @@ class SAMWatchClient:
         if not self._rate_limiter.acquire():
             raise SAMClientError("Unable to obtain rate limit token")
 
-        url = path if path.startswith("http") else f"{self._config.base_url.rstrip('/')}/{path.lstrip('/')}"
+        if path.startswith("http"):
+            url = path
+        else:
+            base = self._config.base_url.rstrip("/")
+            suffix = path.lstrip("/")
+            url = f"{base}/{suffix}"
         response = self._client.request(method, url, **kwargs)
         self._rate_limiter.update_from_headers(response.headers)
         if response.status_code == 429:
@@ -108,7 +114,12 @@ class SAMWatchClient:
                     handle.write(chunk)
                     hash_ctx.update(chunk)
                     bytes_written += len(chunk)
-        return AttachmentDownload(url=url, path=destination, sha256=hash_ctx.hexdigest(), bytes_written=bytes_written)
+        return AttachmentDownload(
+            url=url,
+            path=destination,
+            sha256=hash_ctx.hexdigest(),
+            bytes_written=bytes_written,
+        )
 
     def iter_search(self, params: Mapping[str, Any]) -> Iterable[dict[str, Any]]:
         """Iterate through paginated search results."""
@@ -121,8 +132,7 @@ class SAMWatchClient:
             records = data.get("opportunitiesData", [])
             if not records:
                 break
-            for record in records:
-                yield record
+            yield from records
             offset += limit
             if offset >= data.get("totalRecords", 0):
                 break

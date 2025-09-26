@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterable, Iterator, Sequence
 
 SCHEMA_STATEMENTS: Sequence[str] = (
     """
@@ -121,7 +121,13 @@ SCHEMA_STATEMENTS: Sequence[str] = (
     CREATE TRIGGER IF NOT EXISTS descriptions_ai AFTER INSERT ON descriptions
     BEGIN
         INSERT INTO opportunity_search(rowid, title, agency, body)
-        SELECT NEW.opportunity_id, o.title, o.agency, NEW.body FROM opportunities o WHERE o.id = NEW.opportunity_id;
+        SELECT
+            NEW.opportunity_id,
+            o.title,
+            o.agency,
+            NEW.body
+        FROM opportunities o
+        WHERE o.id = NEW.opportunity_id;
     END;
     """,
     """

@@ -1,11 +1,11 @@
-"""Domain models for SAMWatch."""
+"""Data models used across SAMWatch components."""
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Iterable
 
 
 @dataclass(slots=True)
