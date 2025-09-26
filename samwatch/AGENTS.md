@@ -51,19 +51,20 @@ Stand up the initial project scaffolding (package layout, config plumbing, rate 
     - Document deployment, rate limit management, troubleshooting, and operational playbooks.
 
 ## Progress Checklist
-- [ ] Package skeleton created with placeholder modules.
-- [ ] Config dataclass implemented and tested against environment variables.
-- [ ] Rate limiter with hourly/daily accounting and header parsing.
-- [ ] SAM client capable of search, description, and attachment download.
-- [ ] SQLite schema defined and migrations runnable.
+- [x] Package skeleton created with placeholder modules.
+- [x] Config dataclass implemented and tested against environment variables.
+- [x] Rate limiter with hourly/daily accounting and header parsing.
+- [x] SAM client capable of search, description, and attachment download.
+- [x] SQLite schema defined and migrations runnable.
 - [ ] Ingestion loops operational (hot, warm, cold).
 - [ ] Alerting engine with rule evaluation and notification plumbing.
 - [ ] Documentation (SQL guide + ops) drafted and versioned.
 
 ## Next Action Steps
-1. Initialize package directories and placeholder modules per plan.
-2. Draft `Config` dataclass and rate limiter scaffolding.
-3. Outline database schema definition file.
+1. Flesh out ingestion orchestrator loops with scheduling and persistence of run metadata.
+2. Implement alert delivery mechanisms (email/webhook) and CLI surfaces.
+3. Expand documentation covering operations and backfill processes.
 
 ## Activity Log
 - *2024-05-09*: Created `samwatch/AGENTS.md` to drive build execution within the `samwatch/` package scope.
+- *2024-05-10*: Completed config, rate limiting, client, and database modules; added ingestion run tracking and outlined remaining alerting work.

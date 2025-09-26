@@ -45,10 +45,10 @@ Build a Python service (`samwatch/`) that continuously scans SAM.gov opportuniti
     - Document rate limit management, API usage, ops playbook, and environment setup.
 
 ## Progress Checklist
-- [ ] Repository scaffolding in place (`samwatch/` app modules, CLI entry point).
-- [ ] Configuration and rate limiting utilities implemented.
-- [ ] SAM.gov client for search, descriptions, and attachment downloads.
-- [ ] SQLite schema and migration helpers created.
+- [x] Repository scaffolding in place (`samwatch/` app modules, CLI entry point).
+- [x] Configuration and rate limiting utilities implemented.
+- [x] SAM.gov client for search, descriptions, and attachment downloads.
+- [x] SQLite schema and migration helpers created.
 - [ ] Ingestion pipeline (hot, warm, cold beams) running with persistence.
 - [ ] Alerting engine with rules and notifications.
 - [ ] Documentation (SQL guide, ops playbook) written and up to date.
@@ -56,6 +56,7 @@ Build a Python service (`samwatch/`) that continuously scans SAM.gov opportuniti
 ## Activity Log
 - *2024-05-05*: Initialized mission tracker file.
 - *2024-05-09*: Expanded tracker with full project plan, constraints, and phased roadmap.
+- *2024-05-10*: Implemented scaffolding, configuration, rate limiting, client, and database layers; added run tracking for ingestion sweeps.
 
 ## Working Agreements
 - Keep SAM API keys out of source control (load from environment `SAM_API_KEY`).

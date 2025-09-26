@@ -5,6 +5,7 @@ from __future__ import annotations
 import sqlite3
 from collections.abc import Iterable, Iterator, Sequence
 from contextlib import contextmanager
+from datetime import datetime
 from pathlib import Path
 
 SCHEMA_STATEMENTS: Sequence[str] = (
@@ -146,6 +147,12 @@ class Database:
         self.path = path
         self._connection: sqlite3.Connection | None = None
 
+    @staticmethod
+    def _timestamp() -> str:
+        """Return a UTC timestamp in ISO 8601 format."""
+
+        return datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+
     def connect(self) -> sqlite3.Connection:
         if self._connection is None:
             self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -187,3 +194,42 @@ class Database:
         cur = conn.execute(sql, tuple(parameters or ()))
         conn.commit()
         return cur
+
+    @contextmanager
+    def record_run(self, kind: str) -> Iterator[int]:
+        """Context manager that records a run in the ``runs`` table."""
+
+        started_at = self._timestamp()
+        with self.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO runs (kind, started_at, status)
+                VALUES (?, ?, ?)
+                """,
+                (kind, started_at, "running"),
+            )
+            run_id = int(cur.lastrowid)
+        try:
+            yield run_id
+        except Exception as exc:  # pragma: no cover - defensive logging
+            self._finalize_run(run_id, status="failed", error_message=str(exc)[:1000])
+            raise
+        else:
+            self._finalize_run(run_id, status="succeeded")
+
+    def _finalize_run(
+        self,
+        run_id: int,
+        *,
+        status: str,
+        error_message: str | None = None,
+    ) -> None:
+        with self.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE runs
+                SET status = ?, finished_at = ?, error_message = ?
+                WHERE id = ?
+                """,
+                (status, self._timestamp(), error_message, run_id),
+            )
