@@ -12,7 +12,8 @@ rate limiting primitives, an HTTP client, and database schema definitions.
 - HTTP client helpers for searching opportunities, retrieving descriptions, and downloading
   attachments
 - SQLite schema with tables for opportunities, contacts, attachments, and alerting rules
-- Typer-based command line interface for running ingestion pipelines and queries
+- Typer-based command line interface for running ingestion pipelines, scheduling loops, and
+  querying persisted data
 - Run tracking persisted in the SQLite `runs` table with per-run metrics
 - Multi-channel alerting engine that can emit matches via CLI, webhooks, or email
 
@@ -34,6 +35,13 @@ rate limiting primitives, an HTTP client, and database schema definitions.
 
    ```bash
    samwatch run --hot
+   ```
+
+4. To operate continuously, launch the scheduler which orchestrates the hot, warm, and refresh
+   sweeps alongside health checks:
+
+   ```bash
+   samwatch serve
    ```
 
 ## Development

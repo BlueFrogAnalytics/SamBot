@@ -61,10 +61,11 @@ Stand up the initial project scaffolding (package layout, config plumbing, rate 
 - [x] Documentation (SQL guide + ops) drafted and versioned.
 
 ## Next Action Steps
-1. Integrate scheduler automation and health checks for long-running services.
-2. Build notification templates and delivery retries for alerts.
-3. Document deployment workflows and environment automation.
+1. Build notification templates and delivery retries for alerts.
+2. Document deployment workflows and environment automation.
+3. Capture scheduler run metrics and expose health dashboards.
 
 ## Activity Log
 - *2024-05-09*: Created `samwatch/AGENTS.md` to drive build execution within the `samwatch/` package scope.
 - *2024-05-10*: Completed config, rate limiting, client, and database modules; added ingestion run tracking and outlined remaining alerting work.
+- *2024-05-11*: Wired scheduler-driven CLI command with health checks for continuous ingestion.

@@ -1,9 +1,10 @@
-"""Command-line interface for operating the SAMWatch service."""
+"""Command line interface for the SAMWatch service."""
 
 from __future__ import annotations
 
 import json
-from datetime import datetime
+import logging
+from datetime import datetime, timedelta
 
 import typer
 
@@ -14,11 +15,16 @@ from .config import Config, ConfigError
 from .db import Database
 from .ingest import IngestionOrchestrator
 from .refresher import Refresher
+from .scheduler import ScheduledJob, Scheduler
+
+logger = logging.getLogger(__name__)
 
 app = typer.Typer(help="Utilities for operating the SAMWatch service")
 
 
 def _build_context(with_client: bool = True) -> tuple[Config, Database, SAMWatchClient | None]:
+    """Instantiate shared objects for CLI commands."""
+
     config = Config.from_env()
     database = Database(config.sqlite_path)
     database.initialize_schema()
@@ -33,7 +39,7 @@ def run(
     cold_start: str | None = typer.Option(None, help="Cold sweep start date YYYY-MM-DD"),
     cold_end: str | None = typer.Option(None, help="Cold sweep end date YYYY-MM-DD"),
 ) -> None:
-    """Execute ingestion sweeps."""
+    """Execute ingestion sweeps on demand."""
 
     config, database, client = _build_context(with_client=True)
     assert client is not None
@@ -85,6 +91,74 @@ def query(sql: str = typer.Argument(..., help="SQL statement to run")) -> None:
         rows = cursor.fetchall()
         typer.echo(json.dumps([dict(row) for row in rows], indent=2))
     finally:
+        client.close()
+        database.close()
+
+
+@app.command()
+def serve(
+    include_hot: bool = typer.Option(True, help="Schedule the hot beam"),
+    include_warm: bool = typer.Option(True, help="Schedule the warm beam"),
+    include_refresh: bool = typer.Option(True, help="Schedule recent refresh scans"),
+    refresh_hours: int = typer.Option(24, help="Window (in hours) for refresh scans"),
+    health_interval_minutes: int = typer.Option(5, help="Health check interval in minutes"),
+) -> None:
+    """Run the continuous scheduler for ingestion and refresh tasks."""
+
+    config, database, client = _build_context(with_client=True)
+    assert client is not None
+
+    orchestrator = IngestionOrchestrator(config, client, database)
+    refresher = Refresher(config, client, database)
+    scheduler = Scheduler()
+
+    if include_hot:
+        scheduler.add_job(
+            ScheduledJob(
+                name="hot",
+                interval=timedelta(minutes=config.hot_frequency_minutes),
+                action=orchestrator.run_hot,
+            )
+        )
+    if include_warm:
+        scheduler.add_job(
+            ScheduledJob(
+                name="warm",
+                interval=timedelta(minutes=config.warm_frequency_minutes),
+                action=orchestrator.run_warm,
+            )
+        )
+    if include_refresh:
+        scheduler.add_job(
+            ScheduledJob(
+                name="refresh",
+                interval=timedelta(hours=config.cold_frequency_hours),
+                action=lambda: refresher.refresh_recent(hours=refresh_hours),
+            )
+        )
+
+    def _health_check() -> None:
+        try:
+            with database.cursor() as cur:
+                cur.execute("SELECT 1")
+        except Exception:  # pragma: no cover - defensive logging
+            logger.exception("Health check query failed")
+
+    scheduler.add_job(
+        ScheduledJob(
+            name="health",
+            interval=timedelta(minutes=max(1, health_interval_minutes)),
+            action=_health_check,
+        )
+    )
+
+    try:
+        scheduler.run()
+    except KeyboardInterrupt:  # pragma: no cover - graceful shutdown
+        typer.echo("Stopping scheduler...")
+        scheduler.stop()
+    finally:
+        scheduler.stop()
         client.close()
         database.close()
 
@@ -145,3 +219,4 @@ def main() -> None:  # pragma: no cover - CLI entry point
 
 if __name__ == "__main__":  # pragma: no cover
     main()
+
