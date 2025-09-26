@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
@@ -42,14 +42,8 @@ class Opportunity:
     naics_codes: Iterable[str] | None = None
     set_aside: str | None = None
     digest: str | None = None
-    contacts: list[Contact] = None  # type: ignore[assignment]
-    attachments: list[Attachment] = None  # type: ignore[assignment]
-
-    def __post_init__(self) -> None:
-        if self.contacts is None:
-            self.contacts = []
-        if self.attachments is None:
-            self.attachments = []
+    contacts: list[Contact] = field(default_factory=list)
+    attachments: list[Attachment] = field(default_factory=list)
 
 
 @dataclass(slots=True)
