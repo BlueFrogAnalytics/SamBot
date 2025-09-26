@@ -126,6 +126,7 @@ class IngestionOrchestrator:
                 return
             opportunity_id = row[0]
 
+            self._persist_awards(cur, opportunity_id, record.get("awards") or record.get("award"))
             self._persist_contacts(cur, opportunity_id, record.get("contacts", []))
             self._persist_description(cur, opportunity_id, record)
             self._persist_attachments(
@@ -133,6 +134,45 @@ class IngestionOrchestrator:
                 opportunity_id,
                 notice_id,
                 record.get("resourceLinks", []),
+            )
+
+    def _persist_awards(
+        self,
+        cur,
+        opportunity_id: int,
+        awards: object,
+    ) -> None:
+        cur.execute("DELETE FROM awards WHERE opportunity_id = ?", (opportunity_id,))
+        if not awards:
+            return
+
+        if isinstance(awards, Mapping):
+            award_iterable = [awards]
+        elif isinstance(awards, Iterable) and not isinstance(awards, (str, bytes)):
+            award_iterable = [entry for entry in awards if isinstance(entry, Mapping)]
+        else:
+            award_iterable = []
+
+        for award in award_iterable:
+            cur.execute(
+                """
+                INSERT INTO awards (
+                    opportunity_id, award_type, date, description, amount, vendor_name, vendor_duns
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    opportunity_id,
+                    award.get("type") or award.get("awardType"),
+                    award.get("date") or award.get("awardDate"),
+                    award.get("description") or award.get("awardDescription"),
+                    award.get("amount") or award.get("obligatedAmount"),
+                    award.get("vendorName")
+                    or award.get("recipientName")
+                    or award.get("recipient"),
+                    award.get("vendorDuns")
+                    or award.get("recipientDuns")
+                    or award.get("recipientUniqueId"),
+                ),
             )
 
     def _persist_contacts(

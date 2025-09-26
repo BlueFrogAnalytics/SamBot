@@ -32,6 +32,16 @@ GROUP BY o.agency
 ORDER BY attachment_count DESC;
 ```
 
+## Recent Award Activity
+
+```sql
+SELECT o.notice_id, o.title, aw.award_type, aw.amount, aw.date
+FROM awards aw
+JOIN opportunities o ON o.id = aw.opportunity_id
+WHERE datetime(aw.date) >= datetime('now', '-90 days')
+ORDER BY datetime(aw.date) DESC;
+```
+
 ## Full-Text Search
 
 ```sql
