@@ -15,7 +15,9 @@ rate limiting primitives, an HTTP client, and database schema definitions.
 - Typer-based command line interface for running ingestion pipelines, scheduling loops, and
   querying persisted data
 - Run tracking persisted in the SQLite `runs` table with per-run metrics
-- Multi-channel alerting engine that can emit matches via CLI, webhooks, or email
+- Scheduler metrics that capture run counts, error states, and timestamps for each job
+- Multi-channel alerting engine that can emit matches via CLI, webhooks, or email with
+  configurable templates and retry-aware delivery
 
 ## Getting Started
 
@@ -49,12 +51,15 @@ rate limiting primitives, an HTTP client, and database schema definitions.
 - Configure formatting and linting with `ruff` using the settings in `pyproject.toml`.
 - Tests can be added under `tests/` and run with `pytest`.
 - See `docs/sql_guide.md` for example analytical queries against the SQLite database.
+- Review `docs/deployment.md` for an environment playbook covering service management and
+  automation tips.
 
 ## Roadmap
 
-This repository currently includes the foundational scaffolding for SAMWatch. Upcoming work
-includes implementing full ingestion pipelines, attachment handling, alert delivery
-integrations, and operational documentation.
+This repository now ships with end-to-end ingestion pipelines, attachment handling, alert
+delivery with templated notifications, and operational documentation. Upcoming work focuses on
+production hardening: deeper observability exports, integration tests, and environment
+automation.
 
 ## Configuring Alerts
 
