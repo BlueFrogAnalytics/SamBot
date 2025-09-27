@@ -12,6 +12,26 @@ class ConfigError(RuntimeError):
     """Raised when the runtime configuration is invalid."""
 
 
+def _as_bool(value: object, default: bool) -> bool:
+    """Parse a boolean value from a variety of inputs."""
+
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"", "none", "null"}:
+            return default
+        if normalized in {"1", "true", "yes", "on"}:
+            return True
+        if normalized in {"0", "false", "no", "off"}:
+            return False
+    return bool(value)
+
+
 @dataclass(slots=True)
 class Config:
     """Runtime configuration for the SAMWatch service."""
@@ -30,6 +50,9 @@ class Config:
     cold_frequency_hours: int = 12
     alert_retry_attempts: int = 3
     alert_retry_backoff_seconds: float = 2.0
+    metrics_enabled: bool = True
+    metrics_host: str = "0.0.0.0"
+    metrics_port: int = 9464
 
     @classmethod
     def from_env(
@@ -121,6 +144,23 @@ class Config:
                     ),
                 )
             ),
+            metrics_enabled=_as_bool(
+                overrides.pop(
+                    "metrics_enabled",
+                    env.get("SAMWATCH_METRICS_ENABLED", cls.metrics_enabled),
+                ),
+                cls.metrics_enabled,
+            ),
+            metrics_host=str(
+                overrides.pop(
+                    "metrics_host", env.get("SAMWATCH_METRICS_HOST", cls.metrics_host)
+                )
+            ),
+            metrics_port=int(
+                overrides.pop(
+                    "metrics_port", env.get("SAMWATCH_METRICS_PORT", cls.metrics_port)
+                )
+            ),
         )
 
         if overrides:
@@ -154,4 +194,7 @@ class Config:
             "cold_frequency_hours": self.cold_frequency_hours,
             "alert_retry_attempts": self.alert_retry_attempts,
             "alert_retry_backoff_seconds": self.alert_retry_backoff_seconds,
+            "metrics_enabled": self.metrics_enabled,
+            "metrics_host": self.metrics_host,
+            "metrics_port": self.metrics_port,
         }

@@ -14,6 +14,7 @@ from .client import SAMWatchClient
 from .config import Config, ConfigError
 from .db import Database
 from .ingest import IngestionOrchestrator
+from .metrics import PrometheusSchedulerMetrics
 from .refresher import Refresher
 from .scheduler import ScheduledJob, Scheduler
 
@@ -110,7 +111,23 @@ def serve(
 
     orchestrator = IngestionOrchestrator(config, client, database)
     refresher = Refresher(config, client, database)
-    scheduler = Scheduler()
+    metrics_exporter = None
+    if config.metrics_enabled:
+        try:
+            metrics_exporter = PrometheusSchedulerMetrics(
+                host=config.metrics_host, port=config.metrics_port
+            )
+            metrics_exporter.start()
+            logger.info(
+                "Prometheus metrics exporter listening on %s:%s",
+                config.metrics_host,
+                config.metrics_port,
+            )
+        except Exception:  # pragma: no cover - defensive logging
+            logger.exception("Failed to start Prometheus metrics exporter")
+            metrics_exporter = None
+
+    scheduler = Scheduler(metrics_recorder=metrics_exporter)
 
     if include_hot:
         scheduler.add_job(
