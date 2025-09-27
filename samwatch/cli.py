@@ -141,6 +141,8 @@ def serve(
         try:
             with database.cursor() as cur:
                 cur.execute("SELECT 1")
+            metrics = scheduler.metrics_snapshot()
+            logger.debug("Scheduler metrics snapshot: %s", metrics)
         except Exception:  # pragma: no cover - defensive logging
             logger.exception("Health check query failed")
 

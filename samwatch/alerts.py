@@ -5,9 +5,11 @@ from __future__ import annotations
 import json
 import logging
 import smtplib
+import time
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from email.message import EmailMessage
+from string import Template
 from typing import Any
 
 import httpx
@@ -176,10 +178,11 @@ class AlertEngine:
             )
 
         normalized_entries = self._normalize_entries(entries)
+        context = self._build_notification_context(rule_name, normalized_entries)
 
         for destination in destinations:
             try:
-                self._send_notification(destination, rule_name, normalized_entries)
+                self._send_notification(destination, rule_name, normalized_entries, context)
             except Exception as exc:  # pragma: no cover - defensive logging
                 logger.exception(
                     "Failed to deliver alert %s via %s: %s",
@@ -226,20 +229,53 @@ class AlertEngine:
         return f"https://sam.gov/opp/{notice_id}/view"
 
     def _send_notification(
-        self, destination: AlertDestination, rule_name: str, entries: Sequence[dict[str, Any]]
+        self,
+        destination: AlertDestination,
+        rule_name: str,
+        entries: Sequence[dict[str, Any]],
+        context: Mapping[str, Any],
     ) -> None:
         method = destination.method.lower()
+        attempts = max(1, self.config.alert_retry_attempts)
+        backoff = max(0.0, self.config.alert_retry_backoff_seconds)
+
+        for attempt in range(1, attempts + 1):
+            try:
+                self._deliver_notification(destination, method, rule_name, entries, context)
+            except Exception as exc:
+                if attempt >= attempts:
+                    raise
+                sleep_for = backoff * attempt
+                logger.warning(
+                    "Retrying alert delivery for %s via %s after error: %s", rule_name, method, exc
+                )
+                if sleep_for:
+                    time.sleep(sleep_for)
+            else:
+                break
+
+    def _deliver_notification(
+        self,
+        destination: AlertDestination,
+        method: str,
+        rule_name: str,
+        entries: Sequence[dict[str, Any]],
+        context: Mapping[str, Any],
+    ) -> None:
         if method in {"cli", "console"}:
-            self._send_cli_notification(rule_name, entries)
+            self._send_cli_notification(rule_name, entries, context)
         elif method == "webhook":
-            self._send_webhook_notification(destination.target, rule_name, entries)
+            self._send_webhook_notification(destination.target, rule_name, entries, context)
         elif method == "email":
-            self._send_email_notification(destination.target, rule_name, entries)
+            self._send_email_notification(destination.target, rule_name, entries, context)
         else:
             logger.warning("Unsupported alert delivery method %s", destination.method)
 
     def _send_cli_notification(
-        self, rule_name: str, entries: Sequence[dict[str, Any]]
+        self,
+        rule_name: str,
+        entries: Sequence[dict[str, Any]],
+        context: Mapping[str, Any],
     ) -> None:
         table = Table(title=f"Alert matches for rule: {rule_name}")
         table.add_column("Notice ID")
@@ -254,66 +290,109 @@ class AlertEngine:
                 entry.get("url") or "-",
             )
         self._console.print(table)
+        self._console.print(f"Summary: {context.get('summary', 'n/a')}")
 
     def _send_webhook_notification(
-        self, target: str, rule_name: str, entries: Sequence[dict[str, Any]]
+        self,
+        target: str,
+        rule_name: str,
+        entries: Sequence[dict[str, Any]],
+        context: Mapping[str, Any],
     ) -> None:
         parsed_target = self._parse_target(target)
         headers: dict[str, str] | None = None
         url: str | None = None
+        template_payload: Mapping[str, Any] | None = None
         if isinstance(parsed_target, Mapping):
             url = str(parsed_target.get("url")) if parsed_target.get("url") else None
             headers_obj = parsed_target.get("headers") or {}
             if isinstance(headers_obj, Mapping):
                 headers = {str(k): str(v) for k, v in headers_obj.items()}
+            template = parsed_target.get("template")
+            if isinstance(template, Mapping):
+                template_payload = template
         elif isinstance(parsed_target, str):
             url = parsed_target
         if not url:
-            logger.warning("Webhook target missing URL: %s", target)
-            return
-        payload = {"rule": rule_name, "matches": entries}
-        httpx.post(url, json=payload, headers=headers, timeout=self.config.http_timeout)
+            raise ValueError("Webhook target missing URL")
+        summary = context.get("summary")
+        message: str | None = None
+        if isinstance(template_payload, Mapping):
+            message_template = template_payload.get("message")
+            if isinstance(message_template, str) and message_template:
+                message = self._render_template(message_template, context)
+        payload = {"rule": rule_name, "matches": entries, "summary": message or summary}
+        response = httpx.post(
+            url,
+            json=payload,
+            headers=headers,
+            timeout=self.config.http_timeout,
+        )
+        response.raise_for_status()
 
     def _send_email_notification(
-        self, target: str, rule_name: str, entries: Sequence[dict[str, Any]]
+        self,
+        target: str,
+        rule_name: str,
+        entries: Sequence[dict[str, Any]],
+        context: Mapping[str, Any],
     ) -> None:
         settings = self._parse_target(target)
         if not isinstance(settings, Mapping):
-            logger.warning("Email alert target must be a JSON object: %s", target)
-            return
+            raise ValueError("Email alert target must be a JSON object")
 
         smtp_server = settings.get("smtp_server")
         sender = settings.get("sender")
         recipients = settings.get("recipients")
         if not smtp_server or not sender or not recipients:
-            logger.warning("Email alert target missing required fields: %s", target)
-            return
+            raise ValueError("Email alert target missing required fields")
 
         if isinstance(recipients, str):
             recipient_list = [recipients]
         else:
             recipient_list = [str(r) for r in recipients]
 
-        subject = settings.get("subject") or f"SAMWatch matches for {rule_name}"
-        body_lines = [f"Matches for rule {rule_name}:", ""]
-        for entry in entries:
-            body_lines.append(
-                f"- {entry.get('notice_id') or entry.get('opportunity_id')}: {entry.get('title') or 'Untitled'}"
-            )
-            if entry.get("url"):
-                body_lines.append(f"  URL: {entry['url']}")
-            if entry.get("agency"):
-                body_lines.append(f"  Agency: {entry['agency']}")
-            if entry.get("payload"):
-                body_lines.append("  Payload:")
-                body_lines.append(json.dumps(entry["payload"], indent=2, default=str))
-            body_lines.append("")
+        template_settings_raw = settings.get("template")
+        template_settings = (
+            template_settings_raw
+            if isinstance(template_settings_raw, Mapping)
+            else {}
+        )
+        subject_template = None
+        body_template = None
+        if template_settings:
+            subject_template = template_settings.get("subject")
+            body_template = template_settings.get("body")
+
+        subject = (
+            self._render_template(subject_template, context)
+            if isinstance(subject_template, str) and subject_template
+            else settings.get("subject")
+            or f"SAMWatch matches for {rule_name}"
+        )
+        if isinstance(body_template, str) and body_template:
+            body_content = self._render_template(body_template, context)
+        else:
+            body_lines = [f"Matches for rule {rule_name}:", ""]
+            for entry in entries:
+                notice_ref = entry.get("notice_id") or entry.get("opportunity_id")
+                title = entry.get("title") or "Untitled"
+                body_lines.append(f"- {notice_ref}: {title}")
+                if entry.get("url"):
+                    body_lines.append(f"  URL: {entry['url']}")
+                if entry.get("agency"):
+                    body_lines.append(f"  Agency: {entry['agency']}")
+                if entry.get("payload"):
+                    body_lines.append("  Payload:")
+                    body_lines.append(json.dumps(entry["payload"], indent=2, default=str))
+                body_lines.append("")
+            body_content = "\n".join(body_lines)
 
         message = EmailMessage()
         message["Subject"] = subject
         message["From"] = str(sender)
         message["To"] = ", ".join(recipient_list)
-        message.set_content("\n".join(body_lines))
+        message.set_content(body_content)
 
         port = int(settings.get("smtp_port", 25))
         username = settings.get("username")
@@ -349,6 +428,32 @@ class AlertEngine:
             return {k: self._normalize_payload(v) for k, v in payload.items()}
         if isinstance(payload, list):
             return [self._normalize_payload(item) for item in payload]
-        if isinstance(payload, (str, int, float, bool)) or payload is None:
+        if isinstance(payload, str | int | float | bool) or payload is None:
             return payload
         return str(payload)
+
+    def _build_notification_context(
+        self, rule_name: str, entries: Sequence[dict[str, Any]]
+    ) -> dict[str, Any]:
+        match_count = len(entries)
+        titles = [entry.get("title") or entry.get("notice_id") or "(untitled)" for entry in entries]
+        preview = ", ".join(titles[:3])
+        if match_count > 3:
+            preview += ", …"
+        summary = preview if preview else "No matching opportunities"
+        first_entry = entries[0] if entries else {}
+        return {
+            "rule_name": rule_name,
+            "match_count": match_count,
+            "summary": summary,
+            "matches_json": json.dumps(entries, indent=2, default=str),
+            "first_notice_id": first_entry.get("notice_id"),
+            "first_title": first_entry.get("title"),
+        }
+
+    def _render_template(self, template: str, context: Mapping[str, Any]) -> str:
+        try:
+            return Template(template).safe_substitute(context)
+        except Exception:
+            logger.exception("Failed to render alert template")
+            return template

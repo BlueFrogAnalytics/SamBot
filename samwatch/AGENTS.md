@@ -61,11 +61,12 @@ Stand up the initial project scaffolding (package layout, config plumbing, rate 
 - [x] Documentation (SQL guide + ops) drafted and versioned.
 
 ## Next Action Steps
-1. Build notification templates and delivery retries for alerts.
-2. Document deployment workflows and environment automation.
-3. Capture scheduler run metrics and expose health dashboards.
+1. Export scheduler metrics to external observability tooling (Prometheus, OpenTelemetry).
+2. Add integration tests covering end-to-end ingestion and alert delivery flows.
+3. Harden secret management for alert destinations (rotate credentials, support vault providers).
 
 ## Activity Log
 - *2024-05-09*: Created `samwatch/AGENTS.md` to drive build execution within the `samwatch/` package scope.
 - *2024-05-10*: Completed config, rate limiting, client, and database modules; added ingestion run tracking and outlined remaining alerting work.
 - *2024-05-11*: Wired scheduler-driven CLI command with health checks for continuous ingestion.
+- *2024-05-12*: Added templated alert delivery with retries, scheduler metrics, and deployment documentation.

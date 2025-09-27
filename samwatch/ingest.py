@@ -13,6 +13,7 @@ from .client import SAMClientError, SAMWatchClient
 from .config import Config
 from .db import Database
 
+
 @dataclass(slots=True)
 class UpsertOutcome:
     """Summary information about processing a single record."""
@@ -207,7 +208,7 @@ class IngestionOrchestrator:
 
         if isinstance(awards, Mapping):
             award_iterable = [awards]
-        elif isinstance(awards, Iterable) and not isinstance(awards, (str, bytes)):
+        elif isinstance(awards, Iterable) and not isinstance(awards, str | bytes):
             award_iterable = [entry for entry in awards if isinstance(entry, Mapping)]
         else:
             award_iterable = []

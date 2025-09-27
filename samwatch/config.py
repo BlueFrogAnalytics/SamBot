@@ -28,6 +28,8 @@ class Config:
     hot_frequency_minutes: int = 15
     warm_frequency_minutes: int = 60
     cold_frequency_hours: int = 12
+    alert_retry_attempts: int = 3
+    alert_retry_backoff_seconds: float = 2.0
 
     @classmethod
     def from_env(
@@ -104,6 +106,21 @@ class Config:
                     env.get("SAMWATCH_COLD_FREQUENCY", cls.cold_frequency_hours),
                 )
             ),
+            alert_retry_attempts=int(
+                overrides.pop(
+                    "alert_retry_attempts",
+                    env.get("SAMWATCH_ALERT_RETRY_ATTEMPTS", cls.alert_retry_attempts),
+                )
+            ),
+            alert_retry_backoff_seconds=float(
+                overrides.pop(
+                    "alert_retry_backoff_seconds",
+                    env.get(
+                        "SAMWATCH_ALERT_RETRY_BACKOFF",
+                        cls.alert_retry_backoff_seconds,
+                    ),
+                )
+            ),
         )
 
         if overrides:
@@ -135,4 +152,6 @@ class Config:
             "hot_frequency_minutes": self.hot_frequency_minutes,
             "warm_frequency_minutes": self.warm_frequency_minutes,
             "cold_frequency_hours": self.cold_frequency_hours,
+            "alert_retry_attempts": self.alert_retry_attempts,
+            "alert_retry_backoff_seconds": self.alert_retry_backoff_seconds,
         }
