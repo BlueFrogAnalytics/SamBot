@@ -18,6 +18,7 @@ rate limiting primitives, an HTTP client, and database schema definitions.
 - Scheduler metrics that capture run counts, error states, and timestamps for each job
 - Multi-channel alerting engine that can emit matches via CLI, webhooks, or email with
   configurable templates and retry-aware delivery
+- Prometheus-compatible metrics endpoint that exposes scheduler health for observability
 
 ## Getting Started
 
@@ -45,6 +46,17 @@ rate limiting primitives, an HTTP client, and database schema definitions.
    ```bash
    samwatch serve
    ```
+
+## Metrics & Observability
+
+- The scheduler exports Prometheus metrics when `samwatch serve` is running. By default the
+  endpoint listens on `0.0.0.0:9464`; scrape `http://<host>:9464/metrics`.
+- Control the exporter with the following environment variables:
+  - `SAMWATCH_METRICS_ENABLED` (`true`/`false`, default `true`)
+  - `SAMWATCH_METRICS_HOST` (default `0.0.0.0`)
+  - `SAMWATCH_METRICS_PORT` (default `9464`)
+- Metrics cover job start counts, successes, failures, last run timestamps, and last error
+  messages to support external dashboards and alerting rules.
 
 ## Development
 

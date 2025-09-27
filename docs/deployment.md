@@ -50,6 +50,9 @@ background execution, and ongoing maintenance.
    SAMWATCH_FILES_DIR="/opt/samwatch/app/data/files"
    SAMWATCH_ALERT_RETRY_ATTEMPTS="5"
    SAMWATCH_ALERT_RETRY_BACKOFF="3"
+   SAMWATCH_METRICS_ENABLED="true"
+   SAMWATCH_METRICS_HOST="0.0.0.0"
+   SAMWATCH_METRICS_PORT="9464"
    ```
 
    Load the environment for interactive sessions with `set -a; source .env; set +a`.
@@ -109,6 +112,10 @@ constrained.
   ```bash
   samwatch query "SELECT kind, started_at, status FROM runs ORDER BY started_at DESC LIMIT 10"
   ```
+
+- Scrape Prometheus metrics from `http://localhost:9464/metrics` (configurable via
+  `SAMWATCH_METRICS_HOST` and `SAMWATCH_METRICS_PORT`). The exporter reports job run counts,
+  timestamps, durations, and last error messages suitable for dashboards and alerts.
 
 - Monitor disk utilisation in `data/files/` and plan pruning if required.
 
