@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from .client import SAMWatchClient
 from .config import Config
@@ -33,9 +33,10 @@ class Refresher:
         self._ingestor.upsert_record(record)
 
     def refresh_recent(self, hours: int = 24) -> None:
-        window_start = datetime.utcnow() - timedelta(hours=hours)
-        logger.info("Refreshing opportunities changed since %s", window_start.isoformat())
-        data = self.client.search_opportunities({"modifiedFrom": window_start.isoformat()})
+        window_start = datetime.now(UTC) - timedelta(hours=hours)
+        iso_start = window_start.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        logger.info("Refreshing opportunities changed since %s", iso_start)
+        data = self.client.search_opportunities({"modifiedFrom": iso_start})
         for record in data.get("opportunitiesData", []):
             notice_id = record.get("noticeId")
             if notice_id:

@@ -7,7 +7,7 @@ import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover - type checking only
@@ -83,7 +83,7 @@ class Scheduler:
                     logger.debug("Executing job %s", job.name)
                     metrics = self._metrics.setdefault(job.name, JobMetrics())
                     metrics.runs_started += 1
-                    metrics.last_started_at = datetime.utcnow()
+                    metrics.last_started_at = datetime.now(UTC)
                     start_time = time.monotonic()
                     if self._metrics_recorder is not None:
                         self._metrics_recorder.record_job_start(job)
@@ -103,7 +103,7 @@ class Scheduler:
                             duration = time.monotonic() - start_time
                             self._metrics_recorder.record_job_success(job, duration)
                     finally:
-                        metrics.last_finished_at = datetime.utcnow()
+                        metrics.last_finished_at = datetime.now(UTC)
                         next_run[job.name] = now + job.interval.total_seconds()
             time.sleep(1)
 

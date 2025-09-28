@@ -60,6 +60,7 @@ Build a Python service (`samwatch/`) that continuously scans SAM.gov opportuniti
 - *2024-05-11*: Added scheduler-driven CLI orchestration with periodic health checks.
 - *2024-05-12*: Delivered alert templating with retries, scheduler metrics, and deployment documentation.
 - *2024-05-13*: Added integration coverage for ingestion hot sweeps and alert rule evaluation.
+- *2024-05-14*: Replaced naive UTC helpers with timezone-aware timestamps to silence deprecation warnings and standardize ISO serialization.
 
 ## Working Agreements
 - Keep SAM API keys out of source control (load from environment `SAM_API_KEY`).

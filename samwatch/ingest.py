@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -37,7 +37,7 @@ class IngestionOrchestrator:
     def run_hot(self) -> None:
         """Scan the current day for new or updated notices."""
 
-        today = datetime.utcnow().date()
+        today = datetime.now(UTC).date()
         params = {
             "postedFrom": today.isoformat(),
             "postedTo": today.isoformat(),
@@ -48,7 +48,7 @@ class IngestionOrchestrator:
     def run_warm(self, days: int = 7) -> None:
         """Rescan the last ``days`` for amendments or cancellations."""
 
-        end = datetime.utcnow().date()
+        end = datetime.now(UTC).date()
         start = end - timedelta(days=days)
         params = {
             "postedFrom": start.isoformat(),

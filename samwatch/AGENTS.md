@@ -70,3 +70,4 @@ Stand up the initial project scaffolding (package layout, config plumbing, rate 
 - *2024-05-11*: Wired scheduler-driven CLI command with health checks for continuous ingestion.
 - *2024-05-12*: Added templated alert delivery with retries, scheduler metrics, and deployment documentation.
 - *2024-05-13*: Implemented end-to-end ingestion and alert integration tests to validate orchestration flows.
+- *2024-05-14*: Updated ingestion, refresher, and scheduler codepaths to use timezone-aware timestamps for compatibility with modern Python.
