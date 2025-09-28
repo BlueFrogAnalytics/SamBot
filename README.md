@@ -62,6 +62,7 @@ rate limiting primitives, an HTTP client, and database schema definitions.
 
 - Configure formatting and linting with `ruff` using the settings in `pyproject.toml`.
 - Tests can be added under `tests/` and run with `pytest`.
+- Integration tests now exercise ingestion and alert flows; run `pytest` to validate end-to-end orchestration before deployments.
 - See `docs/sql_guide.md` for example analytical queries against the SQLite database.
 - Review `docs/deployment.md` for an environment playbook covering service management and
   automation tips.
