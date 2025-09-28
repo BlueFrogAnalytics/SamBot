@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from .config import Config
 
@@ -43,7 +43,7 @@ class BackfillPlanner:
     def next_window_from_db(self, last_recorded: datetime | None) -> BackfillWindow:
         """Return the next window to process based on persisted metadata."""
 
-        today = datetime.utcnow().date()
+        today = datetime.now(UTC).date()
         if last_recorded is None:
             start = today - timedelta(days=self.window_days)
         else:

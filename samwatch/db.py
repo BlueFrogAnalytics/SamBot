@@ -5,7 +5,7 @@ from __future__ import annotations
 import sqlite3
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 SCHEMA_STATEMENTS: Sequence[str] = (
@@ -160,7 +160,12 @@ class Database:
     def _timestamp() -> str:
         """Return a UTC timestamp in ISO 8601 format."""
 
-        return datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+        return (
+            datetime.now(UTC)
+            .replace(microsecond=0)
+            .isoformat()
+            .replace("+00:00", "Z")
+        )
 
     def connect(self) -> sqlite3.Connection:
         if self._connection is None:
